@@ -47,8 +47,17 @@ server <- function(input, output) {
     })
 
     output$map <- leaflet::renderLeaflet({
+      print("Creating map...")
+
+      leaflet::leaflet() %>%
+        leaflet::addTiles()
+
+    })
+
+    leafletproxy <- leaflet::leafletProxy("map")
+    observe({
       req(input$year, is.numeric(input$year))
-      print("Generating map...")
+      print("Updating map...")
       predictiondata <- predictions() %>% filter(jaar == input$year-2) %>% select(postcode, .pred)
 
       leafletdata <- mapdata() %>%
@@ -65,8 +74,7 @@ server <- function(input, output) {
         domain = leafletdata$diff
       )
 
-      leaflet::leaflet() %>%
-        leaflet::addTiles() %>% # dit is de achtergrondkaart, vooral nuttig bij heatmap of punten plotten
+      leafletproxy %>%
         leaflet::addPolygons(data = leafletdata,
                              stroke = TRUE, weight = 1, color = "black", smoothFactor = 0.3, fillOpacity = 0.8,
                              layerId = ~postcode,
@@ -75,9 +83,9 @@ server <- function(input, output) {
                                                 "\n<br>Inwoners: ", aantalInwoners,
                                                 "\n<br>Voorspelling: ", round(.pred),
                                                 "\n<br>Verschil: ", diff), htmltools::HTML),
-                                          group = "regions") %>%
+                             group = "regions") %>%
         leaflet::addLegend(pal = pal, values = leafletdata$diff, opacity = 1.0, group = "regions")
-    })
+    }) %>% bindEvent(input$year)
 
     output$lines <- plotly::renderPlotly({
       pred_data <- predictions() %>% filter(jaar == input$year -2 & postcode == input$map_shape_click$id) %>%
