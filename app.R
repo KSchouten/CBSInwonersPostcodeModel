@@ -40,7 +40,10 @@ ui <- fluidPage(
 server <- function(input, output) {
 
     mapdata <- reactive({
-      readRDS("data/pc4_data.Rds")
+      readRDS("data/pc4_geometry.Rds")
+    })
+    popdata <- reactive({
+      readRDS("data/pc4_data_small.Rds")
     })
     predictions <- reactive({
       readRDS("data/predictions.Rds")
@@ -60,10 +63,11 @@ server <- function(input, output) {
       print("Updating map...")
       predictiondata <- predictions() %>% filter(jaar == input$year-2) %>% select(postcode, .pred)
 
-      leafletdata <- mapdata() %>%
+      leafletdata <- popdata() %>%
         filter(jaar == input$year) %>%
         left_join(predictiondata, by = c("postcode")) %>%
-        mutate(diff = round(aantalInwoners - .pred))
+        mutate(diff = round(aantalInwoners - .pred)) %>%
+        left_join(mapdata())
 
       class(leafletdata) <- c("sf", class(leafletdata))
       class(leafletdata$geometry) <- c("sfc_MULTIPOLYGON","sfc")
