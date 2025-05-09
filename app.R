@@ -31,7 +31,7 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-           leaflet::leafletOutput("map", height = "800px")
+           leaflet::leafletOutput("map", height = "900px")
         )
     )
 )
@@ -48,14 +48,28 @@ server <- function(input, output) {
     predictions <- reactive({
       readRDS("data/predictions.Rds")
     })
+    diffs <- reactive({
+      predictions() %>% mutate(jaar = jaar+2) %>%
+        select(jaar, postcode, .pred) %>%
+        inner_join(popdata(), by = c("jaar", "postcode")) %>%
+        mutate(diff = round(aantalInwoners - .pred)) %>%
+        pull(diff)
+    })
+    pal <- reactive({
+      leaflet::colorNumeric(
+        palette = "viridis",
+        domain = diffs()
+      )
+    })
 
     output$map <- leaflet::renderLeaflet({
       print("Creating map...")
 
       leaflet::leaflet() %>%
-        leaflet::addTiles()
-
-    })
+        leaflet::addTiles() %>%
+        leaflet::addLegend(pal = pal(), values = diffs(), opacity = 1.0, group = "regions") %>%
+        leaflet::flyTo(lng = 5.328584, lat = 52.14517, zoom = 8)
+      })
 
     leafletproxy <- leaflet::leafletProxy("map")
     observe({
@@ -73,22 +87,16 @@ server <- function(input, output) {
       class(leafletdata$geometry) <- c("sfc_MULTIPOLYGON","sfc")
       sf::st_geometry(leafletdata) <- "geometry"
 
-      pal <- leaflet::colorNumeric(
-        palette = "viridis",
-        domain = leafletdata$diff
-      )
-
       leafletproxy %>%
         leaflet::addPolygons(data = leafletdata,
                              stroke = TRUE, weight = 1, color = "black", smoothFactor = 0.3, fillOpacity = 0.8,
                              layerId = ~postcode,
-                             fillColor = pal(leafletdata$diff),
+                             fillColor = pal()(leafletdata$diff),
                              label = ~map(str_c("Postcode: ",postcode,
                                                 "\n<br>Inwoners: ", aantalInwoners,
                                                 "\n<br>Voorspelling: ", round(.pred),
                                                 "\n<br>Verschil: ", diff), htmltools::HTML),
-                             group = "regions") %>%
-        leaflet::addLegend(pal = pal, values = leafletdata$diff, opacity = 1.0, group = "regions")
+                             group = "regions")
     }) %>% bindEvent(input$year)
 
     output$lines <- plotly::renderPlotly({
