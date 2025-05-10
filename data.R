@@ -33,5 +33,17 @@ retrieve_data <- function(){
   saveRDS(features %>% list_rbind(), "data/pc4_data.Rds")
 }
 
+write_to_db <- function(){
+  con <- DBI::dbConnect(odbc::odbc(),
+                        Driver = "ODBC Driver 18 for SQL Server",
+                        server = "tcp:istarion.database.windows.net,1433",
+                        database = "cbsdata",
+                        uid = "CloudSA02646473",
+                        pwd = "Eu40InR41ugUAil9GAdAKTaX",
+                        timeout = 30)
+
+  DBI::dbWriteTable(con, "pc4_data", readRDS("data/pc4_data.Rds") %>% select(-geometry), overwrite = TRUE, temporary = FALSE)
+  DBI::dbWriteTable(con, "predictions", readRDS("data/predictions.Rds"), overwrite = TRUE, temporary = FALSE)
+}
 
 
