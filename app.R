@@ -39,14 +39,26 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
+  is_local<-Sys.getenv('SHINY_PORT')==""
   config <- yaml::read_yaml("config.yaml")
-  con <- DBI::dbConnect(odbc::odbc(),
-                        Driver = "ODBC Driver 18 for SQL Server",
-                        server = "tcp:istarion.database.windows.net,1433",
-                        database = "cbsdata",
-                        uid = config$DB_UID,
-                        pwd = config$DB_PWD,
-                        timeout = 30)
+  if (is_local){
+    con <- DBI::dbConnect(odbc::odbc(),
+                          Driver = "ODBC Driver 18 for SQL Server",
+                          server = "tcp:istarion.database.windows.net,1433",
+                          database = "cbsdata",
+                          uid = config$DB_UID,
+                          pwd = config$DB_PWD,
+                          timeout = 30)
+  } else {
+    con <- DBI::dbConnect(odbc::odbc(),
+                          Driver = "SQLServer",
+                          server = "istarion.database.windows.net",
+                          port = 1433,
+                          database = "cbsdata",
+                          uid = config$DB_UID,
+                          pwd = config$DB_PWD,
+                          timeout = 30)
+  }
 
   mapdata <- reactive({
     readRDS("data/pc4_geometry.Rds")
